@@ -29,7 +29,9 @@ cd server
 
 Create a `.env` file:
 ```
-ZAI_API_KEY=your_zai_glm_api_key_here
+# Z.AI API Key - Replace with your actual Z.AI API key
+# Get your key from: https://platform.z.ai/
+ZAI_API_KEY=your_zai_api_key_here
 PORT=3001
 ```
 
@@ -39,7 +41,26 @@ PORT=3001
 npm install express cors dotenv
 ```
 
-### 3. Run the Server
+### 3. API Key Configuration
+
+You have **two ways** to configure your Z.AI API key:
+
+#### Option A: Server-side (Recommended for production)
+- Set your API key in the `server/.env` file above
+- The server will use this key for all requests
+
+#### Option B: Client-side (For testing/convenience)
+- Leave the server `.env` as is
+- Enter your API key directly in the web interface
+- The key is stored locally in your browser
+
+🔑 **Getting Your Z.AI API Key:**
+1. Visit https://platform.z.ai/
+2. Sign up for a Z.AI account
+3. Generate an API key
+4. Use the key in the configuration area
+
+### 4. Run the Server
 
 ```bash
 node index.js
@@ -47,7 +68,7 @@ node index.js
 
 The server will start on `http://localhost:3001`
 
-### 4. Access the Application
+### 5. Access the Application
 
 Open your browser and navigate to:
 ```

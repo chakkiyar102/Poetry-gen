@@ -3,6 +3,14 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Validate Z.AI API key
+if (!process.env.ZAI_API_KEY || process.env.ZAI_API_KEY === 'your_zai_api_key_here') {
+  console.warn('⚠️  WARNING: Z.AI API key not configured!');
+  console.warn('Please set your Z.AI_API_KEY in server/.env file');
+  console.warn('Get your API key from: https://platform.z.ai/');
+  console.warn('The app will use mock poem generation until a valid API key is provided.');
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -10,7 +18,7 @@ app.use(express.json());
 // Serve static files from client directory
 app.use(express.static(path.join(__dirname, '../client')));
 
-// Poetry generation endpoint (mock version for testing)
+// Poetry generation endpoint
 app.post('/api/generate-poem', async (req, res) => {
   try {
     const {
@@ -19,12 +27,71 @@ app.post('/api/generate-poem', async (req, res) => {
       battery,
       weather,
       connectivity,
-      orientation
+      orientation,
+      apiKey
     } = req.body;
 
     const context = buildContext(req.body);
 
-    // Mock poem generation for testing - replace with real API when fixed
+    // Use provided API key from request or fall back to environment variable
+    const apiKeyToUse = (apiKey && apiKey !== 'your_zai_api_key_here') ? apiKey : process.env.ZAI_API_KEY;
+
+    // Check if Z.AI API key is properly configured
+    const hasValidApiKey = apiKeyToUse &&
+                           apiKeyToUse !== 'your_zai_api_key_here' &&
+                           apiKeyToUse.length > 10;
+
+    if (hasValidApiKey) {
+      // Try to use Z.AI API
+      try {
+        const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKeyToUse}`
+          },
+          body: JSON.stringify({
+            model: 'glm-4',
+            messages: [{
+              role: 'user',
+              content: `You are a procedural poet. Generate a unique, evocative poem based on these contextual inputs:
+
+${context}
+
+Create a poem that:
+- Reflects the mood of the time and environment
+- Uses vivid, sensory imagery
+- Is 8-16 lines long
+- Has a natural rhythm (doesn't need to rhyme)
+- Captures the ephemeral nature of this specific moment
+
+Return ONLY the poem text, no title or preamble.`
+            }],
+            max_tokens: 1000,
+            temperature: 0.8
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.choices && data.choices[0] && data.choices[0].message) {
+            const poem = data.choices[0].message.content.trim();
+            console.log('✅ Generated AI poem using Z.AI API');
+
+            return res.json({
+              poem,
+              metadata: req.body,
+              timestamp: new Date().toISOString(),
+              source: 'zai-api'
+            });
+          }
+        }
+      } catch (apiError) {
+        console.warn('⚠️  Z.AI API failed, falling back to mock generation:', apiError.message);
+      }
+    }
+
+    // Mock poem generation (fallback or when API key not configured)
     const mockPoems = [
       `${location?.city || 'This city'} awakens slowly,\nbattery ${battery > 50 ? 'strong' : 'fading'} like morning light,\n${timeOfDay || 'now'} carries whispers of possibility,\neach moment a verse waiting to be written.`,
 
@@ -34,13 +101,13 @@ app.post('/api/generate-poem', async (req, res) => {
     ];
 
     const poem = mockPoems[Math.floor(Math.random() * mockPoems.length)];
-
-    console.log('Generated mock poem based on context:', context);
+    console.log('📝 Generated mock poem based on context:', context);
 
     res.json({
       poem,
       metadata: req.body,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: hasValidApiKey ? 'mock-fallback' : 'mock'
     });
 
   } catch (error) {
