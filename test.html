@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Poetry - Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .sensor-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .sensor-item span {
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        .sensor-item p {
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .generate-btn {
+            background: white;
+            color: #4a5568;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: block;
+            margin: 0 auto 2rem;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .poem-container {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: none;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .poem-text {
+            font-family: 'Georgia', serif;
+            font-size: 1.3rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            margin-bottom: 1rem;
+        }
+
+        .poem-time {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-align: right;
+        }
+
+        .status {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Procedural Poetry</h1>
+            <p>Poetry generated from your moment in time</p>
+        </div>
+
+        <div class="status" id="status">
+            ✅ Server is running and ready!
+        </div>
+
+        <div class="sensor-card">
+            <h2>📊 Current Context</h2>
+            <div class="sensor-grid">
+                <div class="sensor-item">
+                    <span>⏰ Time:</span>
+                    <p id="time-display">Loading...</p>
+                </div>
+                <div class="sensor-item">
+                    <span>🔋 Battery:</span>
+                    <p id="battery-display">Detecting...</p>
+                </div>
+                <div class="sensor-item">
+                    <span>📍 Location:</span>
+                    <p id="location-display">Detecting...</p>
+                </div>
+                <div class="sensor-item">
+                    <span>🌐 Connection:</span>
+                    <p id="connection-display">Detecting...</p>
+                </div>
+            </div>
+        </div>
+
+        <button class="generate-btn" onclick="generatePoem()" id="generate-btn">
+            ✨ Generate Poem
+        </button>
+
+        <div class="poem-container" id="poem-container">
+            <div class="poem-text" id="poem-text"></div>
+            <div class="poem-time" id="poem-time"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let sensorData = {
+            battery: null,
+            location: null,
+            timeOfDay: '',
+            connectivity: '',
+            orientation: ''
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            collectSensorData();
+            setInterval(collectSensorData, 30000);
+        });
+
+        // Collect sensor data
+        async function collectSensorData() {
+            const data = { ...sensorData };
+
+            // Time
+            const now = new Date();
+            data.timeOfDay = now.toLocaleTimeString();
+            document.getElementById('time-display').textContent = data.timeOfDay;
+
+            // Battery
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    data.battery = Math.round(battery.level * 100);
+                    document.getElementById('battery-display').textContent = `${data.battery}%`;
+                } catch (e) {
+                    data.battery = null;
+                    document.getElementById('battery-display').textContent = 'Not supported';
+                }
+            } else {
+                document.getElementById('battery-display').textContent = 'Not supported';
+            }
+
+            // Location
+            if ('geolocation' in navigator) {
+                document.getElementById('location-display').textContent = 'Getting location...';
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            data.location = {
+                                city: 'Unknown',
+                                country: 'Unknown',
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            };
+                            document.getElementById('location-display').textContent = 'Location detected';
+                        } catch (e) {
+                            data.location = { city: 'Unknown', country: 'Unknown' };
+                            document.getElementById('location-display').textContent = 'Location error';
+                        }
+                        sensorData = data;
+                    },
+                    (error) => {
+                        data.location = { city: 'Unknown', country: 'Unknown' };
+                        document.getElementById('location-display').textContent = 'Location denied';
+                        sensorData = data;
+                    }
+                );
+            } else {
+                document.getElementById('location-display').textContent = 'N/A';
+            }
+
+            // Connectivity
+            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (connection) {
+                data.connectivity = connection.effectiveType || 'unknown';
+            } else if (navigator.onLine !== undefined) {
+                data.connectivity = navigator.onLine ? 'online' : 'offline';
+            } else {
+                data.connectivity = 'unknown';
+            }
+            document.getElementById('connection-display').textContent = data.connectivity;
+
+            sensorData = data;
+        }
+
+        // Generate poem
+        async function generatePoem() {
+            const btn = document.getElementById('generate-btn');
+            const poemContainer = document.getElementById('poem-container');
+            const poemText = document.getElementById('poem-text');
+            const poemTime = document.getElementById('poem-time');
+
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('http://localhost:3001/api/generate-poem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(sensorData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    poemText.textContent = data.poem;
+                    poemTime.textContent = `Generated at ${new Date(data.timestamp).toLocaleString()}`;
+                    poemContainer.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Failed to generate poem');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                poemText.textContent = 'Failed to generate poem. Please check the server is running.';
+                poemTime.textContent = '';
+                poemContainer.style.display = 'block';
+            }
+
+            btn.disabled = false;
+            btn.textContent = '✨ Generate Poem';
+        }
+    </script>
+</body>
+</html>
