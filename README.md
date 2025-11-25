@@ -148,3 +148,63 @@ You can customize the poetry prompts by editing the `buildContext()` function an
 - Safari (limited sensor support)
 
 The progressive enhancement ensures the app works even with limited sensor support.
+
+## GitHub Pages Deployment
+
+A static version of the poetry generator is available on GitHub Pages and can be accessed without running a local server.
+
+### Accessing the Live Site
+
+1. Visit your GitHub repository: https://github.com/chakkiyar102/Poetry-gen
+2. Go to **Settings** > **Pages**
+3. Under "Build and deployment", select **Source**: Deploy from a branch
+4. Select **Branch**: `gh-pages` and **Folder**: `/ (root)`
+5. Click **Save**
+6. Your site will be available at: `https://chakkiyar102.github.io/Poetry-gen/`
+
+### Static vs Server Version
+
+The GitHub Pages version works as a **static site** with these differences:
+
+**Static Site (GitHub Pages):**
+- ✅ No server required
+- ✅ Works directly from browser
+- ✅ Direct Z.AI API integration
+- ⚠️ API key stored in browser only
+- ⚠️ No server-side fallbacks
+
+**Full Server Version:**
+- ✅ Complete backend support
+- ✅ Dual API key configuration (client + server)
+- ✅ Enhanced error handling
+- ⚠️ Requires Node.js server to run
+
+### Setting Up GitHub Pages
+
+The gh-pages branch has been created and contains all necessary files. To enable GitHub Pages:
+
+1. **Manual Configuration:**
+   - Go to your repository on GitHub
+   - Click **Settings** tab
+   - Scroll down to **Pages** section
+   - Under "Source", select **Deploy from a branch**
+   - Choose **Branch**: `gh-pages`
+   - Choose **Folder**: `/ (root)`
+   - Click **Save**
+
+2. **Wait for Deployment:**
+   - GitHub will build your site (takes 1-2 minutes)
+   - Check the Pages section for deployment status
+   - Once deployed, your site will be accessible at the URL shown
+
+### Features Available on Static Site
+
+- ✅ All sensor data collection (time, battery, location, connectivity)
+- ✅ Dynamic time-based backgrounds
+- ✅ Z.AI API integration with client-side API key
+- ✅ Mock poem generation fallback
+- ✅ Poem history storage (browser local storage)
+- ✅ Responsive design
+- ✅ Glassmorphic UI effects
+
+The static version provides the complete poetry generation experience without requiring any server infrastructure!
