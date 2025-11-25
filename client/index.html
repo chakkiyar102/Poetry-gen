@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Poetry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Crimson+Text:ital@0;1&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .poem-text {
+            font-family: 'Crimson Text', serif;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.6s ease-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-400 to-purple-600 transition-all duration-1000" id="app">
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-white mb-4 tracking-tight">
+                Procedural Poetry
+            </h1>
+            <p class="text-white/80 text-lg">
+                Poetry generated from your moment in time
+            </p>
+        </header>
+
+        <!-- Sensor Display -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 text-white">
+            <h2 class="text-xl font-semibold mb-4">Current Context</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <span class="opacity-70">Time:</span>
+                    <p class="font-semibold" id="time-display">Loading...</p>
+                </div>
+                <div>
+                    <span class="opacity-70">Battery:</span>
+                    <p class="font-semibold" id="battery-display">Detecting...</p>
+                </div>
+                <div>
+                    <span class="opacity-70">Location:</span>
+                    <p class="font-semibold" id="location-display">Detecting...</p>
+                </div>
+                <div>
+                    <span class="opacity-70">Connection:</span>
+                    <p class="font-semibold" id="connection-display">Detecting...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate Button -->
+        <div class="text-center mb-12">
+            <button
+                onclick="generatePoem()"
+                id="generate-btn"
+                class="bg-white text-gray-900 px-8 py-4 rounded-full font-semibold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                ✨ Generate Poem
+            </button>
+        </div>
+
+        <!-- Poem Display -->
+        <div id="poem-container" class="hidden">
+            <div class="bg-white/20 backdrop-blur-xl rounded-2xl p-8 md:p-12 mb-8 animate-fade-in">
+                <pre class="poem-text text-white text-lg md:text-xl leading-relaxed whitespace-pre-wrap" id="poem-text"></pre>
+                <div class="mt-6 text-white/60 text-sm text-right">
+                    Generated at <span id="poem-timestamp"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Toggle -->
+        <div class="text-center">
+            <button
+                onclick="toggleHistory()"
+                class="text-white/80 hover:text-white underline"
+            >
+                <span id="history-toggle-text">View</span> History (<span id="history-count">0</span>)
+            </button>
+        </div>
+
+        <!-- History -->
+        <div id="history-container" class="hidden mt-8 space-y-4"></div>
+    </div>
+
+    <script>
+        // Global state
+        let sensorData = {
+            battery: null,
+            location: null,
+            timeOfDay: '',
+            connectivity: '',
+            orientation: ''
+        };
+
+        let history = JSON.parse(localStorage.getItem('poemHistory') || '[]');
+        let showHistory = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            collectSensorData();
+            setInterval(collectSensorData, 30000); // Update every 30s
+            updateHistoryDisplay();
+            updateBackgroundGradient();
+        });
+
+        // Collect sensor data
+        async function collectSensorData() {
+            const data = { ...sensorData };
+
+            // Time
+            const now = new Date();
+            data.timeOfDay = now.toLocaleTimeString();
+            document.getElementById('time-display').textContent = data.timeOfDay;
+
+            // Battery - improved detection
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    data.battery = Math.round(battery.level * 100);
+                    document.getElementById('battery-display').textContent = `${data.battery}%`;
+                    console.log('Battery level:', data.battery + '%');
+                } catch (e) {
+                    console.log('Battery API error:', e);
+                    data.battery = null;
+                    document.getElementById('battery-display').textContent = 'Error';
+                }
+            } else {
+                data.battery = null;
+                document.getElementById('battery-display').textContent = 'Not supported';
+            }
+
+            // Location - improved status updates
+            if ('geolocation' in navigator) {
+                document.getElementById('location-display').textContent = 'Getting location...';
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            document.getElementById('location-display').textContent = 'Getting address...';
+                            const response = await axios.get(
+                                `https://geocode.maps.co/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}`
+                            );
+                            data.location = {
+                                city: response.data.address.city || response.data.address.town || 'Unknown',
+                                country: response.data.address.country || 'Unknown',
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            };
+                            document.getElementById('location-display').textContent = data.location.city;
+                            console.log('Location detected:', data.location.city);
+                        } catch (e) {
+                            console.log('Geocoding error:', e);
+                            data.location = { city: 'Unknown', country: 'Unknown', lat: position.coords.latitude, lon: position.coords.longitude };
+                            document.getElementById('location-display').textContent = 'Address unknown';
+                        }
+                        sensorData = data;
+                    },
+                    (error) => {
+                        console.log('Location error:', error);
+                        let errorMsg = 'Location denied';
+                        if (error.code === 1) errorMsg = 'Permission denied';
+                        else if (error.code === 2) errorMsg = 'Position unavailable';
+                        else if (error.code === 3) errorMsg = 'Timeout';
+
+                        data.location = { city: 'Unknown', country: 'Unknown' };
+                        document.getElementById('location-display').textContent = errorMsg;
+                        sensorData = data;
+                    },
+                    {
+                        timeout: 10000,
+                        enableHighAccuracy: true
+                    }
+                );
+            } else {
+                data.location = { city: 'N/A', country: 'N/A' };
+                document.getElementById('location-display').textContent = 'N/A';
+            }
+
+            // Connectivity - improved detection for different browsers
+            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (connection) {
+                data.connectivity = connection.effectiveType || connection.type || 'unknown';
+                document.getElementById('connection-display').textContent = data.connectivity;
+                console.log('Connection type:', data.connectivity);
+            } else if (navigator.onLine !== undefined) {
+                data.connectivity = navigator.onLine ? 'online' : 'offline';
+                document.getElementById('connection-display').textContent = data.connectivity;
+            } else {
+                data.connectivity = 'unknown';
+                document.getElementById('connection-display').textContent = 'Unknown';
+            }
+
+            // Orientation (if available)
+            if ('DeviceOrientationEvent' in window) {
+                window.addEventListener('deviceorientation', (event) => {
+                    if (event.beta !== null) {
+                        if (event.beta > 45) data.orientation = 'tilted forward';
+                        else if (event.beta < -45) data.orientation = 'tilted back';
+                        else data.orientation = 'upright';
+                        sensorData = data;
+                    }
+                }, { once: true });
+            }
+
+            sensorData = data;
+            console.log('Sensor data updated:', sensorData);
+        }
+
+        // Generate poem
+        async function generatePoem() {
+            const btn = document.getElementById('generate-btn');
+            const poemContainer = document.getElementById('poem-container');
+            const poemText = document.getElementById('poem-text');
+            const timestamp = document.getElementById('poem-timestamp');
+
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await axios.post('http://localhost:3001/api/generate-poem', sensorData);
+                const poem = response.data.poem;
+
+                poemText.textContent = poem;
+                timestamp.textContent = new Date().toLocaleString();
+                poemContainer.classList.remove('hidden');
+
+                // Add to history
+                const poemEntry = {
+                    poem: poem,
+                    timestamp: new Date().toISOString(),
+                    metadata: { ...sensorData }
+                };
+
+                history.unshift(poemEntry);
+                history = history.slice(0, 20); // Keep last 20
+                localStorage.setItem('poemHistory', JSON.stringify(history));
+                updateHistoryDisplay();
+
+            } catch (error) {
+                console.error('Error:', error);
+                poemText.textContent = 'Failed to generate poem. Please check your connection and try again.';
+                timestamp.textContent = new Date().toLocaleString();
+                poemContainer.classList.remove('hidden');
+            }
+
+            btn.disabled = false;
+            btn.textContent = '✨ Generate Poem';
+        }
+
+        // Update background gradient based on time - more immersive and colorful
+        function updateBackgroundGradient() {
+            const hour = new Date().getHours();
+            const body = document.getElementById('app');
+
+            body.className = body.className.replace(/from-\S+\s+to-\S+|via-\S+\s+from-\S+\s+to-\S+/, '');
+
+            // Immersive, vibrant multi-color gradients based on time of day
+            let gradient;
+            if (hour < 4) {
+                // Deep mystical night
+                gradient = 'from-indigo-950 via-purple-900 to-pink-950';
+            } else if (hour < 6) {
+                // Pre-dawn magic
+                gradient = 'from-slate-900 via-purple-800 to-pink-700';
+            } else if (hour < 8) {
+                // Golden sunrise
+                gradient = 'from-orange-400 via-pink-500 to-purple-600';
+            } else if (hour < 10) {
+                // Fresh morning
+                gradient = 'from-yellow-300 via-orange-400 to-pink-500';
+            } else if (hour < 12) {
+                // Bright morning energy
+                gradient = 'from-cyan-400 via-blue-500 to-purple-600';
+            } else if (hour < 14) {
+                // Midday brilliance
+                gradient = 'from-blue-400 via-indigo-500 to-purple-600';
+            } else if (hour < 16) {
+                // Warm afternoon
+                gradient = 'from-teal-400 via-blue-500 to-purple-600';
+            } else if (hour < 18) {
+                // Golden hour
+                gradient = 'from-orange-400 via-red-500 to-pink-600';
+            } else if (hour < 20) {
+                // Twilight magic
+                gradient = 'from-purple-500 via-pink-500 to-indigo-600';
+            } else if (hour < 22) {
+                // Deep evening
+                gradient = 'from-indigo-700 via-purple-800 to-pink-800';
+            } else {
+                // Mystical late night
+                gradient = 'from-slate-900 via-indigo-900 to-purple-950';
+            }
+
+            body.className = `min-h-screen bg-gradient-to-br ${gradient} transition-all duration-1000`;
+        }
+
+        // Toggle history display
+        function toggleHistory() {
+            showHistory = !showHistory;
+            const container = document.getElementById('history-container');
+            const toggleText = document.getElementById('history-toggle-text');
+
+            if (showHistory) {
+                container.classList.remove('hidden');
+                toggleText.textContent = 'Hide';
+                displayHistory();
+            } else {
+                container.classList.add('hidden');
+                toggleText.textContent = 'View';
+            }
+        }
+
+        // Update history count
+        function updateHistoryDisplay() {
+            document.getElementById('history-count').textContent = history.length;
+        }
+
+        // Display history items
+        function displayHistory() {
+            const container = document.getElementById('history-container');
+            container.innerHTML = '';
+
+            if (history.length === 0) {
+                container.innerHTML = '<p class="text-white/60 text-center">No poems generated yet</p>';
+                return;
+            }
+
+            history.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'bg-white/10 backdrop-blur-lg rounded-xl p-6 text-white animate-fade-in';
+                div.innerHTML = `
+                    <pre class="poem-text text-sm leading-relaxed whitespace-pre-wrap mb-2">${item.poem}</pre>
+                    <div class="text-xs text-white/50">
+                        ${new Date(item.timestamp).toLocaleString()}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Update background every minute
+        setInterval(updateBackgroundGradient, 60000);
+    </script>
+</body>
+</html>
